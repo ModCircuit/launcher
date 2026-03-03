@@ -168,7 +168,7 @@ const handlePlayFeatured = () => {
         </button>
       </div>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <LauncherModpackCard
+        <ModpackCard
           v-for="modpack in recentlyPlayed"
           :key="modpack.id"
           :modpack="modpack"
@@ -190,7 +190,7 @@ const handlePlayFeatured = () => {
         </button>
       </div>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <LauncherModpackCard
+        <ModpackCard
           v-for="modpack in trendingModpacks"
           :key="modpack.id"
           :modpack="modpack"

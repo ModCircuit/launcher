@@ -6,15 +6,16 @@ import (
 )
 
 type Paths struct {
-	appRoot       string
-	settingsPath  string
-	instancesPath string
+	appRoot              string
+	instancesPath        string
+	SettingsFilePath     string
+	RepositoriesFilePath string
 }
 
-// EnsurePaths initializes the app directory, settings file, and instances directory
+// EnsurePaths initializes the app directory, settings file, repositories file, and instances directory
 func EnsurePaths() (*Paths, error) {
 	// Get user home directory
-	base, err := os.UserHomeDir()
+	base, err := os.UserConfigDir()
 	if err != nil {
 		return nil, err
 	}
@@ -42,6 +43,23 @@ func EnsurePaths() (*Paths, error) {
 		return nil, os.ErrInvalid
 	}
 
+	// Repositories file
+	repositoriesPath := filepath.Join(appRoot, "repositories.json")
+	if info, err := os.Stat(repositoriesPath); err != nil {
+		if os.IsNotExist(err) {
+			f, err := os.OpenFile(repositoriesPath, os.O_CREATE|os.O_WRONLY, 0o644)
+			if err != nil {
+				return nil, err
+			}
+			_, _ = f.Write([]byte("[]"))
+			_ = f.Close()
+		} else {
+			return nil, err
+		}
+	} else if info.IsDir() {
+		return nil, os.ErrInvalid
+	}
+
 	// Instances directory
 	instancesPath := filepath.Join(appRoot, "instances")
 	if err := os.MkdirAll(instancesPath, 0o755); err != nil {
@@ -49,9 +67,10 @@ func EnsurePaths() (*Paths, error) {
 	}
 
 	return &Paths{
-		appRoot:       appRoot,
-		settingsPath:  settingsPath,
-		instancesPath: instancesPath,
+		appRoot:              appRoot,
+		instancesPath:        instancesPath,
+		SettingsFilePath:     settingsPath,
+		RepositoriesFilePath: repositoriesPath,
 	}, nil
 }
 
@@ -62,10 +81,15 @@ func (p *Paths) AppRoot() string {
 
 // Returns settings file path
 func (p *Paths) SettingsPath() string {
-	return p.settingsPath
+	return p.SettingsFilePath
 }
 
 // Returns instances directory path
 func (p *Paths) InstancesPath() string {
 	return p.instancesPath
+}
+
+// Returns repositories file path
+func (p *Paths) RepositoriesPath() string {
+	return p.RepositoriesFilePath
 }

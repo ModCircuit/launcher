@@ -1,29 +1,28 @@
 <script setup lang="ts">
-type ViewType = 'home' | 'modpacks' | 'downloads' | 'instances' | 'settings' | 'about'
-
 interface Props {
-  currentView: ViewType
   collapsed: boolean
 }
 
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  navigate: [view: ViewType]
   toggle: []
 }>()
 
 interface NavItem {
-  id: ViewType
+  id: string
   label: string
   icon: string
 }
 
+const route = useRoute()
+
 const mainNavItems: NavItem[] = [
-  { id: 'home', label: 'Home', icon: 'lucide:home' },
+  { id: 'index', label: 'Home', icon: 'lucide:home' },
   { id: 'modpacks', label: 'Modpacks', icon: 'lucide:package' },
   { id: 'downloads', label: 'Downloads', icon: 'lucide:download' },
   { id: 'instances', label: 'Instances', icon: 'lucide:folder' },
+  { id: 'repositories', label: 'Repositories', icon: 'lucide:folder-tree' },
 ]
 
 const bottomNavItems: NavItem[] = [
@@ -31,12 +30,16 @@ const bottomNavItems: NavItem[] = [
   { id: 'about', label: 'About', icon: 'lucide:info' },
 ]
 
-const getNavItemClass = (itemId: ViewType) => {
+const getNavItemClass = (itemId: string) => {
   const baseClass = 'flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition-colors'
-  if (props.currentView === itemId) {
+  if (route.name === itemId) {
     return `${baseClass} bg-primary/10 text-primary`
   }
   return `${baseClass} text-muted-foreground hover:bg-secondary hover:text-foreground`
+}
+
+const navigateToRoute = (itemId: string) => {
+  navigateTo({ name: itemId })
 }
 </script>
 
@@ -67,7 +70,7 @@ const getNavItemClass = (itemId: ViewType) => {
         :class="getNavItemClass(item.id)"
         class="w-full"
         :title="collapsed ? item.label : undefined"
-        @click="emit('navigate', item.id)"
+        @click="navigateToRoute(item.id)"
       >
         <Icon :name="item.icon" class="h-5 w-5 flex-shrink-0" />
         <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
@@ -82,7 +85,7 @@ const getNavItemClass = (itemId: ViewType) => {
         :class="getNavItemClass(item.id)"
         class="w-full"
         :title="collapsed ? item.label : undefined"
-        @click="emit('navigate', item.id)"
+        @click="navigateToRoute(item.id)"
       >
         <Icon :name="item.icon" class="h-5 w-5 flex-shrink-0" />
         <span v-if="!collapsed" class="truncate">{{ item.label }}</span>

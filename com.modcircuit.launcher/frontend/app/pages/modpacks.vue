@@ -194,7 +194,7 @@ const filteredModpacks = computed(() => {
         'space-y-4': viewMode === 'list',
       }"
     >
-      <ModPackCard
+      <ModpackCard
         v-for="modpack in filteredModpacks"
         :key="modpack.id"
         :modpack="modpack"
