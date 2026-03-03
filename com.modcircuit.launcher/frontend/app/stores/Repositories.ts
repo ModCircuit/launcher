@@ -90,7 +90,7 @@ export const useRepositoryStore = defineStore('repositories', {
             await UpdateRepository(id, name, url, description, enabled, priority)
             const idx = this.repositories.findIndex((r) => r.id === id)
             if (idx !== -1) {
-                this.repositories[idx] = { id, name, url, description, enabled, priority }
+                this.repositories.splice(idx, 1, { id, name, url, description, enabled, priority })
             }
         },
 

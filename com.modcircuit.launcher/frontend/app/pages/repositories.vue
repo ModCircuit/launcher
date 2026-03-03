@@ -1,18 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRepositoryStore } from '~/stores/Repositories'
-import type { Repository } from '~/stores/Repositories'
+import type { Repository, RepositoryStatus } from '~/stores/Repositories'
 
 const repoStore = useRepositoryStore()
 
-onMounted(() => {
-  repoStore.init()
-})
-
+const loading = ref(true)
 const searchQuery = ref('')
 const drawerOpen = ref(false)
 const editingRepo = ref<Repository | null>(null)
 const saving = ref(false)
+const saveError = ref('')
+const pinging = ref<Record<string, boolean>>({})
 
 const formData = ref({
   name: '',
@@ -22,25 +21,32 @@ const formData = ref({
   priority: 0,
 })
 
+onMounted(async () => {
+  await repoStore.init()
+  loading.value = false
+})
+
 const filteredRepositories = computed(() => {
   if (!searchQuery.value) return repoStore.sortedRepositories
-  const query = searchQuery.value.toLowerCase()
+  const q = searchQuery.value.toLowerCase()
   return repoStore.sortedRepositories.filter(
-    (repo) =>
-      repo.name.toLowerCase().includes(query) ||
-      repo.url.toLowerCase().includes(query) ||
-      repo.description.toLowerCase().includes(query),
+    (r) =>
+      r.name.toLowerCase().includes(q) ||
+      r.url.toLowerCase().includes(q) ||
+      r.description.toLowerCase().includes(q),
   )
 })
 
 const openCreateDrawer = () => {
   editingRepo.value = null
+  saveError.value = ''
   formData.value = { name: '', url: '', description: '', enabled: true, priority: 0 }
   drawerOpen.value = true
 }
 
 const openEditDrawer = (repo: Repository) => {
   editingRepo.value = repo
+  saveError.value = ''
   formData.value = {
     name: repo.name,
     url: repo.url,
@@ -54,10 +60,12 @@ const openEditDrawer = (repo: Repository) => {
 const closeDrawer = () => {
   drawerOpen.value = false
   editingRepo.value = null
+  saveError.value = ''
 }
 
 const saveRepository = async () => {
   saving.value = true
+  saveError.value = ''
   try {
     if (editingRepo.value) {
       await repoStore.updateRepository(
@@ -78,6 +86,8 @@ const saveRepository = async () => {
       )
     }
     closeDrawer()
+  } catch (e) {
+    saveError.value = e instanceof Error ? e.message : 'Failed to save repository'
   } finally {
     saving.value = false
   }
@@ -91,25 +101,39 @@ const toggleRepository = async (id: string) => {
   await repoStore.toggleRepository(id)
 }
 
-const pingRepository = (id: string) => {
-  repoStore.pingRepository(id).catch(() => {})
+const pingRepository = async (id: string) => {
+  pinging.value[id] = true
+  try {
+    await repoStore.pingRepository(id)
+  } finally {
+    // Status update comes via event; clear spinner after short delay
+    setTimeout(() => { pinging.value[id] = false }, 3500)
+  }
 }
 
-const pingAllRepositories = () => {
+const pingAll = () => {
   repoStore.pingAll().catch(() => {})
 }
 
-const getStatusColor = (id: string) => {
-  const s = repoStore.getStatus(id)
-  if (!s) return 'bg-muted-foreground'
-  if (s.online) return 'bg-primary'
-  return 'bg-destructive'
+// Access status directly from store state for proper reactivity
+const getStatus = (id: string): RepositoryStatus | null => repoStore.status[id] ?? null
+
+const statusColor = (id: string) => {
+  const s = getStatus(id)
+  if (!s) return 'bg-muted-foreground/40'
+  return s.online ? 'bg-green-500' : 'bg-destructive'
 }
 
-const getStatusText = (id: string) => {
-  const s = repoStore.getStatus(id)
+const statusText = (id: string) => {
+  const s = getStatus(id)
   if (!s) return 'Unknown'
   return s.online ? 'Online' : 'Offline'
+}
+
+const statusBadgeClass = (id: string) => {
+  const s = getStatus(id)
+  if (!s) return 'bg-muted text-muted-foreground'
+  return s.online ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'
 }
 </script>
 
@@ -124,7 +148,7 @@ const getStatusText = (id: string) => {
       <div class="flex gap-2">
         <button
           class="flex items-center gap-2 rounded bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80"
-          @click="pingAllRepositories"
+          @click="pingAll"
         >
           <Icon name="lucide:refresh-cw" class="h-4 w-4" />
           Ping All
@@ -153,73 +177,81 @@ const getStatusText = (id: string) => {
       />
     </div>
 
+    <!-- Loading -->
+    <div v-if="loading" class="flex items-center justify-center py-12">
+      <Icon name="lucide:loader-circle" class="h-8 w-8 animate-spin text-muted-foreground" />
+    </div>
+
     <!-- Repository List -->
-    <div class="space-y-3">
+    <div v-else class="space-y-3">
       <div
         v-for="repo in filteredRepositories"
         :key="repo.id"
-        class="group rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
+        class="rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/30"
         :class="{ 'opacity-60': !repo.enabled }"
       >
         <div class="flex items-start justify-between gap-4">
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-3">
-              <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
+              <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
                 <Icon name="lucide:database" class="h-5 w-5 text-primary" />
               </div>
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-2 flex-wrap">
                   <h3 class="font-semibold text-foreground truncate">{{ repo.name }}</h3>
                   <span
-                    class="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs"
-                    :class="
-                      repo.enabled
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-muted text-muted-foreground'
-                    "
+                    class="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                    :class="statusBadgeClass(repo.id)"
                   >
-                    <span class="h-1.5 w-1.5 rounded-full" :class="getStatusColor(repo.id)" />
-                    {{ getStatusText(repo.id) }}
+                    <span class="h-1.5 w-1.5 rounded-full" :class="statusColor(repo.id)" />
+                    {{ statusText(repo.id) }}
+                  </span>
+                  <span
+                    v-if="!repo.enabled"
+                    class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                  >
+                    Disabled
                   </span>
                 </div>
                 <p class="text-sm text-muted-foreground truncate">{{ repo.url }}</p>
               </div>
             </div>
-            <p class="mt-2 text-sm text-muted-foreground line-clamp-2">
+            <p v-if="repo.description" class="mt-2 text-sm text-muted-foreground line-clamp-2">
               {{ repo.description }}
             </p>
-            <div
-              v-if="repoStore.getStatus(repo.id)"
-              class="mt-2 text-xs text-muted-foreground"
-            >
+            <div v-if="repoStore.status[repo.id]" class="mt-2 text-xs text-muted-foreground">
               <span class="flex items-center gap-1">
                 <Icon name="lucide:clock" class="h-3.5 w-3.5" />
-                Last checked:
-                {{
-                  new Date(repoStore.getStatus(repo.id)!.checkedAt).toLocaleTimeString()
-                }}
+                Last checked: {{ new Date(repoStore.status[repo.id]!.checkedAt).toLocaleTimeString() }}
+                <span v-if="repoStore.status[repo.id]!.error" class="text-destructive ml-1">
+                  — {{ repoStore.status[repo.id]!.error }}
+                </span>
               </span>
             </div>
           </div>
 
           <!-- Actions -->
-          <div class="flex items-center gap-1">
+          <div class="flex shrink-0 items-center gap-1">
             <button
               class="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
               title="Ping repository"
               @click="pingRepository(repo.id)"
             >
-              <Icon name="lucide:refresh-cw" class="h-4 w-4" />
+              <Icon
+                name="lucide:refresh-cw"
+                class="h-4 w-4"
+                :class="{ 'animate-spin': pinging[repo.id] }"
+              />
             </button>
             <button
-              class="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              class="flex h-8 w-8 items-center justify-center rounded transition-colors hover:bg-secondary"
               :title="repo.enabled ? 'Disable repository' : 'Enable repository'"
+              :class="repo.enabled ? 'text-primary' : 'text-muted-foreground'"
               @click="toggleRepository(repo.id)"
             >
               <Icon
                 :name="repo.enabled ? 'lucide:toggle-right' : 'lucide:toggle-left'"
-                class="h-4 w-4"
-                :class="repo.enabled ? 'text-primary' : ''"
+                class="h-5 w-5"
               />
             </button>
             <button
@@ -245,7 +277,7 @@ const getStatusText = (id: string) => {
         v-if="filteredRepositories.length === 0"
         class="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-12"
       >
-        <Icon name="lucide:database" class="h-12 w-12 text-muted-foreground/50" />
+        <Icon name="lucide:database" class="h-12 w-12 text-muted-foreground/40" />
         <h3 class="mt-4 text-lg font-medium text-foreground">No repositories found</h3>
         <p class="mt-1 text-sm text-muted-foreground">
           {{ searchQuery ? 'Try a different search term' : 'Add a repository to get started' }}
@@ -318,14 +350,12 @@ const getStatusText = (id: string) => {
                     required
                     class="w-full rounded border border-border bg-input px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
-                  <p class="text-xs text-muted-foreground">
-                    Enter the base URL of the modpack repository
-                  </p>
+                  <p class="text-xs text-muted-foreground">Base URL of the modpack repository</p>
                 </div>
 
                 <!-- Description -->
                 <div class="space-y-2">
-                  <label class="text-sm font-medium text-foreground">Description</label>
+                  <label class="text-sm font-medium text-foreground">Description <span class="text-muted-foreground font-normal">(optional)</span></label>
                   <textarea
                     v-model="formData.description"
                     placeholder="A brief description of this repository..."
@@ -338,9 +368,7 @@ const getStatusText = (id: string) => {
                 <div class="flex items-center justify-between rounded-lg border border-border p-4">
                   <div>
                     <p class="text-sm font-medium text-foreground">Enable Repository</p>
-                    <p class="text-xs text-muted-foreground">
-                      Include this repository when fetching modpacks
-                    </p>
+                    <p class="text-xs text-muted-foreground">Include when fetching modpacks</p>
                   </div>
                   <button
                     type="button"
@@ -354,6 +382,11 @@ const getStatusText = (id: string) => {
                     />
                   </button>
                 </div>
+
+                <!-- Error -->
+                <p v-if="saveError" class="rounded bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {{ saveError }}
+                </p>
               </form>
             </div>
 
@@ -369,9 +402,10 @@ const getStatusText = (id: string) => {
               <button
                 type="button"
                 :disabled="saving"
-                class="flex-1 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                class="flex flex-1 items-center justify-center gap-2 rounded bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
                 @click="saveRepository"
               >
+                <Icon v-if="saving" name="lucide:loader-circle" class="h-4 w-4 animate-spin" />
                 {{ saving ? 'Saving...' : editingRepo ? 'Save Changes' : 'Add Repository' }}
               </button>
             </div>
@@ -387,17 +421,14 @@ const getStatusText = (id: string) => {
 .fade-leave-active {
   transition: opacity 0.2s ease;
 }
-
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-
 .slide-enter-active,
 .slide-leave-active {
   transition: transform 0.3s ease;
 }
-
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(100%);
