@@ -1,18 +1,5 @@
 <script setup lang="ts">
-export interface Modpack {
-  id: string
-  name: string
-  version: string
-  mcVersion: string
-  author: string
-  description: string
-  image: string
-  downloads: number
-  rating: number
-  tags: string[]
-  installed?: boolean
-  lastPlayed?: string
-}
+import type { Modpack } from '~/stores/Modpacks'
 
 interface Props {
   modpack: Modpack

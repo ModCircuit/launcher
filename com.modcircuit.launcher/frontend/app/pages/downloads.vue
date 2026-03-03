@@ -1,109 +1,27 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { useDownloadsStore } from '~/stores/Downloads'
+import type { Download } from '~/stores/Downloads'
 
-interface Download {
-  id: string
-  name: string
-  version: string
-  progress: number
-  speed: string
-  status: 'downloading' | 'paused' | 'completed' | 'error'
-  size: string
-  downloaded: string
-}
-
-const activeDownloads = ref<Download[]>([
-  {
-    id: '1',
-    name: 'TechCraft Ultimate',
-    version: '3.2.1',
-    progress: 67,
-    speed: '12.4 MB/s',
-    status: 'downloading',
-    size: '1.2 GB',
-    downloaded: '804 MB',
-  },
-  {
-    id: '2',
-    name: 'Medieval Kingdoms',
-    version: '2.1.0',
-    progress: 23,
-    speed: '0 B/s',
-    status: 'paused',
-    size: '856 MB',
-    downloaded: '197 MB',
-  },
-])
-
-const downloadHistory = ref<Download[]>([
-  {
-    id: '3',
-    name: 'SkyFactory 5',
-    version: '5.0.3',
-    progress: 100,
-    speed: '',
-    status: 'completed',
-    size: '1.5 GB',
-    downloaded: '1.5 GB',
-  },
-  {
-    id: '4',
-    name: 'Arcane Adventures',
-    version: '1.5.0',
-    progress: 100,
-    speed: '',
-    status: 'completed',
-    size: '920 MB',
-    downloaded: '920 MB',
-  },
-])
+const store = useDownloadsStore()
 
 const getStatusColor = (status: Download['status']) => {
   switch (status) {
-    case 'downloading':
-      return 'text-primary'
-    case 'paused':
-      return 'text-yellow-500'
-    case 'completed':
-      return 'text-green-500'
-    case 'error':
-      return 'text-accent'
-    default:
-      return 'text-muted-foreground'
+    case 'downloading': return 'text-primary'
+    case 'paused':      return 'text-yellow-500'
+    case 'completed':   return 'text-green-500'
+    case 'error':       return 'text-accent'
+    default:            return 'text-muted-foreground'
   }
 }
 
 const getStatusIcon = (status: Download['status']) => {
   switch (status) {
-    case 'downloading':
-      return 'lucide:download'
-    case 'paused':
-      return 'lucide:pause'
-    case 'completed':
-      return 'lucide:check-circle'
-    case 'error':
-      return 'lucide:alert-circle'
-    default:
-      return 'lucide:circle'
+    case 'downloading': return 'lucide:download'
+    case 'paused':      return 'lucide:pause'
+    case 'completed':   return 'lucide:check-circle'
+    case 'error':       return 'lucide:alert-circle'
+    default:            return 'lucide:circle'
   }
-}
-
-const togglePause = (download: Download) => {
-  if (download.status === 'downloading') {
-    download.status = 'paused'
-    download.speed = '0 B/s'
-  } else if (download.status === 'paused') {
-    download.status = 'downloading'
-    download.speed = '12.4 MB/s'
-  }
-}
-
-const cancelDownload = (id: string) => {
-  activeDownloads.value = activeDownloads.value.filter((d) => d.id !== id)
-}
-
-const clearHistory = () => {
-  downloadHistory.value = []
 }
 </script>
 
@@ -121,9 +39,9 @@ const clearHistory = () => {
       <h2 class="mb-4 font-display text-lg font-semibold text-foreground">
         Active Downloads
       </h2>
-      <div v-if="activeDownloads.length > 0" class="space-y-4">
+      <div v-if="store.active.length > 0" class="space-y-4">
         <div
-          v-for="download in activeDownloads"
+          v-for="download in store.active"
           :key="download.id"
           class="card p-4"
         >
@@ -160,7 +78,7 @@ const clearHistory = () => {
               <button
                 class="btn btn-ghost h-9 w-9 p-0"
                 :aria-label="download.status === 'paused' ? 'Resume' : 'Pause'"
-                @click="togglePause(download)"
+                @click="store.togglePause(download.id)"
               >
                 <Icon
                   :name="download.status === 'paused' ? 'lucide:play' : 'lucide:pause'"
@@ -170,7 +88,7 @@ const clearHistory = () => {
               <button
                 class="btn btn-ghost h-9 w-9 p-0 text-accent hover:bg-accent/10"
                 aria-label="Cancel"
-                @click="cancelDownload(download.id)"
+                @click="store.cancel(download.id)"
               >
                 <Icon name="lucide:x" class="h-4 w-4" />
               </button>
@@ -196,16 +114,16 @@ const clearHistory = () => {
           Download History
         </h2>
         <button
-          v-if="downloadHistory.length > 0"
+          v-if="store.history.length > 0"
           class="text-sm text-primary hover:underline"
-          @click="clearHistory"
+          @click="store.clearHistory()"
         >
           Clear History
         </button>
       </div>
-      <div v-if="downloadHistory.length > 0" class="space-y-2">
+      <div v-if="store.history.length > 0" class="space-y-2">
         <div
-          v-for="download in downloadHistory"
+          v-for="download in store.history"
           :key="download.id"
           class="card flex items-center justify-between p-4"
         >
