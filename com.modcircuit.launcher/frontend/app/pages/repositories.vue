@@ -12,20 +12,39 @@ const drawerOpen = ref(false)
 const editingRepo = ref<Repository | null>(null)
 const saving = ref(false)
 const saveError = ref('')
-const pinging = ref<Record<string, boolean>>({})
-const pingingAll = ref(false)
+const PING_MIN_MS = 600
 
-// Clear a repo's spinner as soon as its status event arrives
+const pinging = ref<Record<string, boolean>>({})
+// Derived: true while any individual repo spinner is still active
+const pingingAll: ComputedRef<boolean> = computed(() =>
+  Object.values(pinging.value).some(Boolean),
+)
+
+// Per-id start timestamps and scheduled clear timers
+const pingStartTimes: Record<string, number> = {}
+const pingTimers: Record<string, ReturnType<typeof setTimeout>> = {}
+
+const startPinging = (id: string) => {
+  pingStartTimes[id] = Date.now()
+  pinging.value[id] = true
+}
+
+// Clears spinner after the remaining minimum display time
+const stopPinging = (id: string) => {
+  if (pingTimers[id]) clearTimeout(pingTimers[id])
+  const elapsed = Date.now() - (pingStartTimes[id] ?? 0)
+  pingTimers[id] = setTimeout(() => {
+    pinging.value[id] = false
+    delete pingTimers[id]
+  }, Math.max(0, PING_MIN_MS - elapsed))
+}
+
+// When a status event arrives, trigger the debounced clear
 watch(
   () => repoStore.status,
   (status) => {
     for (const id of Object.keys(status)) {
-      if (pinging.value[id]) {
-        pinging.value[id] = false
-      }
-    }
-    if (pingingAll.value && Object.keys(status).length > 0) {
-      pingingAll.value = false
+      if (pinging.value[id]) stopPinging(id)
     }
   },
   { deep: true },
@@ -126,25 +145,19 @@ const toggleRepository = async (id: string) => {
 }
 
 const pingRepository = async (id: string) => {
-  pinging.value[id] = true
-  // Spinner clears via the status watcher when the event arrives.
-  // Fallback: clear after 5s in case the repo is unreachable and no event fires.
-  setTimeout(() => { pinging.value[id] = false }, 5000)
+  startPinging(id)
+  // Fallback: force-clear after 6s if no status event ever arrives
+  setTimeout(() => stopPinging(id), 6000)
   await repoStore.pingRepository(id).catch(() => {})
 }
 
 const pingAll = async () => {
-  pingingAll.value = true
-  for (const repo of repoStore.repositories) {
-    pinging.value[repo.id] = true
-  }
-  // Fallback clear in case some repos never return a status event
+  for (const repo of repoStore.repositories) startPinging(repo.id)
   setTimeout(() => {
-    pingingAll.value = false
     for (const id of Object.keys(pinging.value)) {
-      pinging.value[id] = false
+      if (pinging.value[id]) stopPinging(id)
     }
-  }, 5000)
+  }, 6000)
   await repoStore.pingAll().catch(() => {})
 }
 
@@ -181,7 +194,7 @@ const statusBadgeClass = (id: string) => {
       <div class="flex gap-2">
         <button
           class="flex items-center gap-2 rounded bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50"
-          :disabled="pingingAll"
+          :disabled="pingingAll || repoStore.repositories.length === 0"
           @click="pingAll"
         >
           <Icon name="lucide:refresh-cw" class="h-4 w-4" :class="{ 'animate-spin': pingingAll }" />
