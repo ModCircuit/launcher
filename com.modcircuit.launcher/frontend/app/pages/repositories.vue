@@ -483,15 +483,17 @@ const statusBadgeClass = (id: string) => {
 <style scoped>
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.35s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
 }
-.slide-enter-active,
+.slide-enter-active {
+  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
 .slide-leave-active {
-  transition: transform 0.3s ease;
+  transition: transform 0.35s cubic-bezier(0.5, 0, 0.75, 0);
 }
 .slide-enter-from,
 .slide-leave-to {
