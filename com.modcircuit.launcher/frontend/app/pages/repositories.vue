@@ -152,7 +152,7 @@ const pingRepository = async (id: string) => {
 }
 
 const pingAll = async () => {
-  for (const repo of repoStore.repositories) startPinging(repo.id)
+  for (const repo of repoStore.repositories.filter((r) => r.enabled)) startPinging(repo.id)
   setTimeout(() => {
     for (const id of Object.keys(pinging.value)) {
       if (pinging.value[id]) stopPinging(id)
@@ -264,6 +264,7 @@ const statusBadgeClass = (id: string) => {
                 <div class="flex items-center gap-2 flex-wrap">
                   <h3 class="font-semibold text-foreground truncate">{{ repo.name }}</h3>
                   <span
+                    v-if="repo.enabled"
                     class="flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
                     :class="statusBadgeClass(repo.id)"
                   >
@@ -297,8 +298,9 @@ const statusBadgeClass = (id: string) => {
           <!-- Actions -->
           <div class="flex shrink-0 items-center gap-1">
             <button
-              class="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              class="flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-30 disabled:pointer-events-none"
               title="Ping repository"
+              :disabled="!repo.enabled"
               @click="pingRepository(repo.id)"
             >
               <Icon
@@ -359,10 +361,15 @@ const statusBadgeClass = (id: string) => {
 
     <!-- Drawer Overlay -->
     <Teleport to="body">
-      <Transition name="fade">
+      <Transition
+        enter-active-class="transition-opacity duration-[350ms] ease-in-out"
+        leave-active-class="transition-opacity duration-[350ms] ease-in-out"
+        enter-from-class="opacity-0"
+        leave-to-class="opacity-0"
+      >
         <div
           v-if="drawerOpen"
-          class="fixed inset-0 z-40 bg-black/50"
+          class="fixed inset-0 z-40 bg-black/50 will-change-[opacity]"
           @click="closeDrawer"
         />
       </Transition>
@@ -370,10 +377,15 @@ const statusBadgeClass = (id: string) => {
 
     <!-- Drawer -->
     <Teleport to="body">
-      <Transition name="slide">
+      <Transition
+        enter-active-class="transition-transform duration-[400ms] ease-drawer-open"
+        leave-active-class="transition-transform duration-[350ms] ease-drawer-close"
+        enter-from-class="translate-x-full"
+        leave-to-class="translate-x-full"
+      >
         <div
           v-if="drawerOpen"
-          class="fixed bottom-0 right-0 top-0 z-50 w-full max-w-md border-l border-border bg-card shadow-xl"
+          class="fixed bottom-0 right-0 top-0 z-50 w-full max-w-md border-l border-border bg-card shadow-xl will-change-transform"
         >
           <div class="flex h-full flex-col">
             <!-- Drawer Header -->
@@ -479,24 +491,3 @@ const statusBadgeClass = (id: string) => {
     </Teleport>
   </div>
 </template>
-
-<style scoped>
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.35s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.slide-enter-active {
-  transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
-}
-.slide-leave-active {
-  transition: transform 0.35s cubic-bezier(0.5, 0, 0.75, 0);
-}
-.slide-enter-from,
-.slide-leave-to {
-  transform: translateX(100%);
-}
-</style>

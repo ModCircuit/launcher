@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import {ref} from "vue";
+import TitleBar from "~/components/Layouts/TitleBar.vue";
+import Sidebar from "~/components/Layouts/Sidebar.vue";
 
-type ViewType = 'home' | 'modpacks' | 'downloads' | 'instances' | 'settings' | 'about'
-
-const currentView = ref<ViewType>('home')
 const sidebarCollapsed = ref(false)
-
-const handleNavigation = (view: ViewType) => {
-  currentView.value = view
-}
 
 const toggleSidebar = () => {
   sidebarCollapsed.value = !sidebarCollapsed.value
@@ -18,15 +13,13 @@ const toggleSidebar = () => {
 <template>
   <div class="flex h-screen flex-col overflow-hidden bg-background">
     <!-- Title Bar -->
-    <LauncherTitleBar />
+    <TitleBar />
 
     <!-- Main Content -->
     <div class="flex flex-1 overflow-hidden">
       <!-- Sidebar -->
-      <LauncherSidebar
-          :current-view="currentView"
+      <Sidebar
           :collapsed="sidebarCollapsed"
-          @navigate="handleNavigation"
           @toggle="toggleSidebar"
       />
 
@@ -37,7 +30,3 @@ const toggleSidebar = () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-
-</style>

@@ -28,6 +28,10 @@ export default {
       borderRadius: {
         DEFAULT: '0.625rem',
       },
+      transitionTimingFunction: {
+        'drawer-open': 'cubic-bezier(0.25, 1, 0.5, 1)',
+        'drawer-close': 'cubic-bezier(0.5, 0, 0.75, 0)',
+      },
     },
   },
   plugins: [],

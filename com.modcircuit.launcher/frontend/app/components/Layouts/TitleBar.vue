@@ -18,17 +18,6 @@ const handleClose = () => {
 }
 </script>
 
-<style scoped>
-.titlebar {
-    height: 32px;
-    user-select: none;
-}
-
-button {
-    --wails-draggable: no-drag;
-}
-</style>
-
 <template>
   <header
     class="flex h-10 items-center justify-between border-b border-border bg-card px-4"
@@ -37,7 +26,7 @@ button {
     <!-- Logo and Title -->
     <div class="flex items-center gap-3">
       <img
-        src="/images/modcircuit-logo.png"
+        src="~/assets/images/modcircuit-logo.png"
         alt="ModCircuit"
         class="h-6 w-6"
       />

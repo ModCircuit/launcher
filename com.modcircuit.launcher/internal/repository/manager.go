@@ -211,13 +211,13 @@ func (m *Manager) PingAll() {
 	}
 }
 
-// Ping pings a single repository by ID regardless of its enabled state.
+// Ping pings a single repository by ID. Disabled repositories are skipped.
 func (m *Manager) Ping(id string) {
 	m.mu.RLock()
 	repo, ok := m.repos[id]
 	m.mu.RUnlock()
 
-	if ok {
+	if ok && repo.Enabled {
 		go m.pingOne(repo)
 	}
 }

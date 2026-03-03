@@ -91,7 +91,7 @@ export const useRepositoryStore = defineStore('repositories', {
         ): Promise<Repository> {
             const repo = await AddRepository(name, url, description, enabled, priority)
             this.repositories.push(repo)
-            PingRepository(repo.id).catch(() => {})
+            if (repo.enabled) PingRepository(repo.id).catch(() => {})
             return repo
         },
 
